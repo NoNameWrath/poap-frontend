@@ -1,29 +1,40 @@
-import { Keypair } from '@solana/web3.js';
-import { supabase } from '../lib/supabase';
+import { supabase } from "../lib/supabase";
 
-export async function createWallet() {
-  const keypair = Keypair.generate();
-  const address = keypair.publicKey.toBase58();
+/**
+ * Fetch the current user's wallet (or null if none exists)
+ */
+export async function getUserWallet() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
 
-  // TODO: encrypt secretKey before sending to server
-  const secretKey = JSON.stringify(Array.from(keypair.secretKey));
-
-  function withTimeout(promise, ms = 15000) {
-  return Promise.race([
-    promise,
-    new Promise((_, rej) => setTimeout(() => rej(new Error('Timed out')), ms)),
-  ]);
-}
-
-const { error } = await withTimeout(
-  supabase.functions.invoke('wallet', { body: { address, secretKey } })
-);
-if (error) throw new Error(error.message || 'Failed to save wallet');
-
+  const { data, error } = await supabase
+    .from("wallets")
+    .select("public_key")
+    .eq("user_email", user.email)
+    .maybeSingle();
 
   if (error) {
-    throw new Error('Failed to save wallet');
+    console.error("fetch wallet error:", error);
+    return null;
   }
 
-  return { address };
+  return data?.public_key ?? null;
+}
+
+/**
+ * Calls the wallet edge function to create the wallet.
+ * The function already handles duplicates. If wallet already exists,
+ * it returns { alreadyExists: true, public_key: "..." }
+ */
+export async function createWallet(address, secretKey) {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const { data, error } = await supabase.functions.invoke("wallet", {
+    body: { address, secretKey },
+    headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+  });
+
+  if (error) throw error;
+
+  return data;
 }

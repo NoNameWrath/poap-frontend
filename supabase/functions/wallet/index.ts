@@ -1,62 +1,57 @@
 // supabase/functions/wallet/index.ts
-// Deno runtime (Edge Functions)
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json'
+  'Content-Type': 'application/json',
 }
 
-const SUPABASE_URL = Deno.env.get('PROJECT_URL')!
-const SERVICE_ROLE_KEY = Deno.env.get('PROJECT_ANON_KEY')!
+const PROJECT_URL = Deno.env.get('project_url')!
+const ANON_KEY = Deno.env.get('product_anon_key')!
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env')
-}
-
-Deno.serve(async (req: Request) => {
-  // CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
-
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405, headers: corsHeaders })
   }
 
-  try {
-    const { address, secretKey } = await req.json().catch(() => ({}))
-    if (!address || !secretKey) {
-      return new Response(JSON.stringify({ error: 'address and secretKey required' }), { status: 400, headers: corsHeaders })
-    }
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const supabase = createClient(PROJECT_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } })
 
-    // Use service role to bypass RLS for this write, but still bind the caller’s auth for auditing
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-      global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } }
-    })
+  // who is calling
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
 
-    // Get authed user from the JWT the JS client sends automatically with functions.invoke
-    const { data: { user }, error: userErr } = await supabase.auth.getUser()
-    if (userErr || !user) {
-      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: corsHeaders })
-    }
+  const { address, secretKey } = await req.json()
+  if (!address) return new Response(JSON.stringify({ error: 'Missing address' }), { status: 400, headers: corsHeaders })
 
-    // TODO: do NOT keep raw secretKey in prod. Encrypt or use a KMS. This is unencrypted for demo only.
-    const { error: insertErr } = await supabase
-      .from('wallets')
-      .insert([{ user_email: user.email, public_key: address, secret_key: secretKey }])
+  // already has a wallet?
+  const { data: existing, error: selErr } = await supabase
+    .from('wallets')
+    .select('public_key')
+    .eq('user_email', user.email)
+    .maybeSingle()
 
-    if (insertErr) {
-      console.error('Insert wallet failed:', insertErr)
-      return new Response(JSON.stringify({ error: 'Failed to save wallet' }), { status: 500, headers: corsHeaders })
-    }
-
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: corsHeaders })
-  } catch (e) {
-    console.error('Unhandled wallet error:', e)
-    return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500, headers: corsHeaders })
+  if (selErr) {
+    return new Response(JSON.stringify({ error: 'Lookup failed', detail: selErr.message }), { status: 500, headers: corsHeaders })
   }
+
+  if (existing) {
+    return new Response(JSON.stringify({ ok: true, alreadyExists: true, public_key: existing.public_key }), { status: 409, headers: corsHeaders })
+  }
+
+  // create new
+  const { data: inserted, error: insErr } = await supabase
+    .from('wallets')
+    .insert([{ user_email: user.email, public_key: address, secret_key: secretKey ?? null }])
+    .select('public_key')
+    .single()
+
+  if (insErr) {
+    return new Response(JSON.stringify({ error: 'Insert failed', detail: insErr.message }), { status: 500, headers: corsHeaders })
+  }
+
+  return new Response(JSON.stringify({ ok: true, public_key: inserted.public_key }), { status: 200, headers: corsHeaders })
 })
