@@ -1,10 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Scan from './pages/Scan';
-import AuthCallback from './pages/Authcallback'; // add this
-import { useAuth } from './context/AuthContext';
+import PostLogin from './pages/PostLogin';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -12,29 +12,14 @@ function PrivateRoute({ children }) {
   return user ? children : <Navigate to="/login" replace />;
 }
 
-
 export default function RoutesDef() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/auth/callback" element={<AuthCallback />} /> {/* add this */}
-      <Route
-        path="/app"
-        element={
-          <PrivateRoute>
-            <Dashboard />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/scan"
-        element={
-          <PrivateRoute>
-            <Scan />
-          </PrivateRoute>
-        }
-      />
+      <Route path="/post-login" element={<PostLogin />} />
+      <Route path="/app" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+      <Route path="/scan" element={<PrivateRoute><Scan /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

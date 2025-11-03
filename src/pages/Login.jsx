@@ -8,7 +8,6 @@ export default function Login() {
 
   const handleLogin = async () => {
     await signInWithGoogle();
-    nav('/app');
   };
 
   return (
@@ -21,7 +20,6 @@ export default function Login() {
           <button className="mt-6 btn btn-primary w-full" onClick={handleLogin}>
             Continue with Google
           </button>
-          <p className="mt-3 text-xs text-zinc-500">This button is mocked. Replace with real Google login.</p>
         </div>
       </main>
     </div>
