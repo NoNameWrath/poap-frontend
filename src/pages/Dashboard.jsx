@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 export default function Dashboard() {
   const { wallet, setWallet, nfts, setNFTs } = useAppStore();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const ensureWallet = async () => {
     if (!wallet) {
@@ -23,9 +24,12 @@ export default function Dashboard() {
   const loadNFTs = async () => {
     if (!wallet) return;
     setLoading(true);
+    setError(null);
     try {
       const items = await fetchUserNFTs(wallet.address);
       setNFTs(items);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -38,8 +42,16 @@ export default function Dashboard() {
   }, [wallet?.address]);
 
   const handleCreateWallet = async () => {
-    const w = await ensureWallet();
-    if (w) loadNFTs();
+    setLoading(true);
+    setError(null);
+    try {
+      const w = await ensureWallet();
+      if (w) loadNFTs();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -52,10 +64,14 @@ export default function Dashboard() {
           <div className="card p-4">
             <div className="text-sm text-zinc-400">Actions</div>
             <div className="mt-2 flex gap-2">
-              <button onClick={handleCreateWallet} className="btn btn-primary">Create wallet</button>
-              <button onClick={loadNFTs} className="btn btn-ghost">Refresh NFTs</button>
+              <button onClick={handleCreateWallet} className="btn btn-primary" disabled={loading}>
+                {loading ? 'Creating...' : 'Create wallet'}
+              </button>
+              <button onClick={loadNFTs} className="btn btn-ghost" disabled={loading}>
+                {loading ? 'Refreshing...' : 'Refresh NFTs'}
+              </button>
             </div>
-            {loading && <div className="mt-2 text-xs text-zinc-500">Loading...</div>}
+            {error && <div className="mt-2 text-xs text-red-500">{error}</div>}
           </div>
         </div>
 
