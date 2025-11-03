@@ -8,9 +8,18 @@ export async function createWallet() {
   // TODO: encrypt secretKey before sending to server
   const secretKey = JSON.stringify(Array.from(keypair.secretKey));
 
-  const { error } = await supabase.functions.invoke('wallet', {
-    body: { address, secretKey },
-  });
+  function withTimeout(promise, ms = 15000) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('Timed out')), ms)),
+  ]);
+}
+
+const { error } = await withTimeout(
+  supabase.functions.invoke('wallet', { body: { address, secretKey } })
+);
+if (error) throw new Error(error.message || 'Failed to save wallet');
+
 
   if (error) {
     throw new Error('Failed to save wallet');
