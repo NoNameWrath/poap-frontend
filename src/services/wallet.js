@@ -38,3 +38,17 @@ export async function createWallet(address, secretKey) {
 
   return data;
 }
+export async function getUserSecretKey() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not logged in");
+
+  const { data, error } = await supabase
+    .from("wallets")
+    .select("secret_key")
+    .eq("user_email", user.email)
+    .maybeSingle();
+
+  if (error) throw error;
+  // secret_key may be jsonb (array) or text; just return as-is
+  return data?.secret_key ?? null;
+}
