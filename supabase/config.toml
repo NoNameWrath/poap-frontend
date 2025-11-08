@@ -339,47 +339,25 @@ s3_region = "env(S3_REGION)"
 s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
+# ---------- FUNCTIONS (per-function config only) ----------
+
+[functions."qr-issue"]
+verify_jwt = false
+import_map = "./functions/deno.json"
+entrypoint = "./functions/qr-issue/index.ts"
+
+[functions.mint]
+verify_jwt = false
+import_map = "./functions/deno.json"
+entrypoint = "./functions/mint/index.ts"
 
 [functions.wallet]
-enabled = true
 verify_jwt = true
-import_map = "./functions/wallet/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+import_map = "./functions/deno.json"
 entrypoint = "./functions/wallet/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/wallet/*.html" ]
-[functions.events-create]
-enabled = true
-verify_jwt = true
-import_map = "./functions/wallet/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/wallet/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/wallet/*.html" ]
-[functions.mint]
-enabled = true
-verify_jwt = true
-import_map = "./functions/wallet/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/wallet/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/wallet/*.html" ]
-[functions.qr-issue]
-enabled = true
-verify_jwt = true
-import_map = "./functions/wallet/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/wallet/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/wallet/*.html" ]
 
-
+[functions."events-create"]
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/events-create/index.ts"
 

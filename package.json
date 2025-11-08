@@ -9,6 +9,7 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
+    "@metaplex-foundation/mpl-core": "^1.7.0",
     "@metaplex-foundation/umi": "^1.4.1",
     "@noble/ed25519": "^3.0.0",
     "@solana/web3.js": "^1.98.4",

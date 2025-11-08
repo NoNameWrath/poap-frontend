@@ -1,5 +1,11 @@
 {
-  "imports": {},
-  "compilerOptions": { "lib": ["esnext", "dom"] },
-  "nodeModulesDir": "none"
+  "nodeModulesDir": "none",
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
+    "@noble/ed25519": "npm:@noble/ed25519@2.1.0",
+    "bs58": "npm:bs58@5.0.0",
+    "@metaplex-foundation/umi-bundle-defaults": "npm:@metaplex-foundation/umi-bundle-defaults@1.4.1",
+    "@metaplex-foundation/umi": "npm:@metaplex-foundation/umi@1.0.0",
+    "@metaplex-foundation/mpl-core": "npm:@metaplex-foundation/mpl-core@1.0.0"
+  }
 }

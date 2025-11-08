@@ -128,6 +128,7 @@ setMintSig(data?.minted_asset || null);
     } catch (e) {
       setError(e?.message || "QR fetch failed");
     }
+    
   }}
 >
   Test Mint (fresh QR)
