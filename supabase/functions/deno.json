@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "@noble/ed25519": "jsr:@noble/ed25519@^3.0.0"
+  },
+  
+  "compilerOptions": {
+     "lib": ["deno.window", "dom", "dom.iterable"] 
+    },
+  "nodeModulesDir": "none"
+}
+
+
