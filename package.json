@@ -13,6 +13,7 @@
     "@noble/ed25519": "^3.0.0",
     "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.78.0",
+    "@yudiel/react-qr-scanner": "^2.4.1",
     "html5-qrcode": "^2.3.8",
     "qrcode.react": "^3.1.0",
     "react": "^18.2.0",

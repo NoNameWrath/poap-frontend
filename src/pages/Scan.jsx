@@ -1,90 +1,88 @@
-import Navbar from '../components/Navbar';
-import QRRotator from '../components/QRRotator';
-import { useCallback, useState, useEffect, useRef } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import { useAppStore } from '../store/useAppStore';
-import { mintAttendanceNFT } from '../services/api';
+// src/pages/Scan.jsx
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { useAppStore } from "../store/useAppStore";
+import { Scanner } from "@yudiel/react-qr-scanner";
 
 export default function Scan() {
-  const { wallet, nfts, setNFTs } = useAppStore();
-  const [lastScan, setLastScan] = useState(null);
-  const [minting, setMinting] = useState(false);
-  const [error, setError] = useState(null);
-  const scannerRef = useRef(null);
+  const { wallet } = useAppStore(); // expects wallet.address present
+  const [scanned, setScanned] = useState(null);
+  const [mintSig, setMintSig] = useState(null);
+  const [error, setError] = useState("");
 
-  const onScanSuccess = useCallback((decodedText, decodedResult) => {
-    setLastScan(decodedText);
-  }, []);
-
-  const onScanFailure = useCallback((error) => {
-    // Handle scan failure, usually just ignore
-  }, []);
-
-  useEffect(() => {
-    if (scannerRef.current) {
-      const scanner = new Html5QrcodeScanner(
-        scannerRef.current.id,
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-        },
-        false
-      );
-      
-      scanner.render(onScanSuccess, onScanFailure);
-      
-      return () => {
-        scanner.clear().catch(console.error);
-      };
-    }
-  }, [onScanSuccess, onScanFailure]);
-
-  const handleMint = async () => {
-    if (!wallet) {
-      setError('Create a wallet first in Dashboard.');
-      return;
-    }
-    if (!lastScan) {
-      setError('Scan the event QR first.');
-      return;
-    }
-    setError(null);
-    setMinting(true);
+  const handleScan = async (text) => {
     try {
-      const minted = await mintAttendanceNFT({ walletAddress: wallet.address, payload: lastScan });
-      setNFTs([minted, ...nfts]);
-    } finally {
-      setMinting(false);
+      setError("");
+      if (!text) return;
+      const payload = JSON.parse(text);
+      setScanned(payload);
+
+      const { token, sig, signer } = payload || {};
+      if (!token?.event || !sig || !signer) {
+        setError("Invalid QR payload");
+        return;
+      }
+      if (!wallet?.address) {
+        setError("No wallet found. Create or login first.");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("mint", {
+        body: {
+          event_id: token.event,
+          token,
+          sig,
+          signer,
+          wallet_pubkey: wallet.address
+        }
+      });
+
+      if (error) throw error;
+      setMintSig(data?.minted_asset || null);
+    } catch (e) {
+      console.error(e);
+      setError(e?.message || "Mint failed");
     }
   };
 
+  useEffect(() => {
+    setScanned(null);
+    setMintSig(null);
+    setError("");
+  }, []);
+
   return (
-    <div className="min-h-screen">
-      <Navbar />
-      <main className="container-px mx-auto pt-8 pb-16">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <QRRotator />
-
-          <div className="card p-6">
-            <div className="text-sm text-zinc-400">Scanner</div>
-            <div className="mt-3 rounded-xl overflow-hidden">
-              <div id="qr-scanner" ref={scannerRef}></div>
-            </div>
-
-            <div className="mt-4 text-xs text-zinc-500 break-all">
-              last payload: {lastScan || '—'}
-            </div>
-
-            <div className="mt-4 flex gap-2">
-              <button onClick={handleMint} className="btn btn-primary" disabled={minting}>
-                {minting ? 'Minting...' : 'Mint POAP'}
-              </button>
-              {error && <div className="text-red-400 self-center text-sm">{error}</div>}
-            </div>
-          </div>
+    <div className="min-h-screen p-4">
+      <div className="max-w-xl mx-auto">
+        <h1 className="text-2xl font-semibold mb-2">Scan POAP</h1>
+        <div className="text-sm text-zinc-600 mb-4">
+          Wallet: <span className="font-mono">{wallet?.address || "none"}</span>
         </div>
-      </main>
+
+        <div className="rounded overflow-hidden border">
+          <Scanner
+            constraints={{ facingMode: "environment" }}
+            onDecode={handleScan}
+            onError={(err) => setError(err?.message || "Camera error")}
+          />
+        </div>
+
+        {scanned && (
+          <div className="mt-4 text-xs bg-zinc-100 p-3 rounded">
+            <div className="text-zinc-500 mb-1">Scanned payload</div>
+            <pre className="overflow-auto">{JSON.stringify(scanned, null, 2)}</pre>
+          </div>
+        )}
+
+        {mintSig && (
+          <div className="mt-4 p-3 rounded bg-green-50 border border-green-200">
+            <div className="text-green-700 text-sm">Minted!</div>
+            <div className="text-xs break-all font-mono">{mintSig}</div>
+          </div>
+        )}
+
+        {error && <div className="mt-2 text-xs text-red-500">{error}</div>}
+      </div>
     </div>
   );
 }
