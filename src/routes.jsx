@@ -23,7 +23,6 @@ export default function RoutesDef() {
       <Route path="/scan" element={<PrivateRoute><Scan /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
       <Route path="/admin" element={<Admin />} />
-      <Route path="/scan" element={<Scan />} />
       
     </Routes>
   );

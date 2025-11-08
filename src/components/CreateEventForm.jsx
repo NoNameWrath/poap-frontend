@@ -16,7 +16,8 @@ export default function CreateEventForm({ onCreated }) {
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("events-create", {
-        body: { name, starts_at: new Date(start).toISOString(), ends_at: new Date(end).toISOString() }
+        body: { name, starts_at: new Date(start).toISOString(), ends_at: new Date(end).toISOString() },
+
       });
       if (error) throw error;
       setName(""); setStart(""); setEnd("");

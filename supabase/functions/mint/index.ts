@@ -1,9 +1,11 @@
 // supabase/functions/mint/index.ts
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as ed from "@noble/ed25519";
-import { createUmi, publicKey, keypairIdentity } from "https://esm.sh/@metaplex-foundation/umi@0.9.1";
-import { create } from "https://esm.sh/@metaplex-foundation/mpl-core@1.0.0";
-import { Keypair } from "https://esm.sh/@solana/web3.js@1.95.3";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import * as ed from "npm:@noble/ed25519@2.1.0";
+import { createUmi, publicKey, keypairIdentity } from "npm:@metaplex-foundation/umi@0.9.1";
+import { create } from "npm:@metaplex-foundation/mpl-core@1.0.0";
+import { Keypair } from "npm:@solana/web3.js@1.95.3";
+import { createSignerFromKeypair } from "npm:@metaplex-foundation/umi-web3js-adapters@1.0.0";
+
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -82,11 +84,25 @@ Deno.serve(async (req) => {
     }
 
     // Umi: mint a Core asset to attendee
-    const umi = createUmi(RPC_URL);
-    // load server authority keypair
-    const serverSecret = b64ToU8(SERVER_MINT_SECRET_B64);
-    const payer = Keypair.fromSecretKey(serverSecret);      // web3.js keypair for transport
-    umi.use(keypairIdentity({ publicKey: payer.publicKey, secretKey: payer.secretKey } as any));
+    // --- identity wiring (drop-in) ---
+const umi = createUmi(RPC_URL);
+
+const serverSecret = b64ToU8(SERVER_MINT_SECRET_B64);
+if (serverSecret.length !== 64) {
+  // make the failure explicit instead of crashing on undefined.publicKey
+  return new Response(
+    JSON.stringify({ error: "server_mint_secret_b64 must decode to 64 bytes, got " + serverSecret.length }),
+    { status: 500, headers: cors }
+  );
+}
+
+const serverKeypair = Keypair.fromSecretKey(serverSecret);
+const serverSigner = createSignerFromKeypair(umi, serverKeypair);
+umi.use(keypairIdentity(serverSigner));
+// --- end identity wiring ---
+
+
+
 
     // create Core asset with owner = attendee
     // If your Core version requires different args, adjust; owner should be the recipient

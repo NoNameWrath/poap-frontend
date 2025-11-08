@@ -9,6 +9,8 @@ export default function Scan() {
   const [scanned, setScanned] = useState(null);
   const [mintSig, setMintSig] = useState(null);
   const [error, setError] = useState("");
+  const EVENT_ID = "a0982bcb-d7ea-4f72-99ad-527cd2936ec3"; // or prop/state
+const [busy, setBusy] = useState(false);
 
   const handleScan = async (text) => {
     try {
@@ -28,17 +30,30 @@ export default function Scan() {
       }
 
       const { data, error } = await supabase.functions.invoke("mint", {
-        body: {
-          event_id: token.event,
-          token,
-          sig,
-          signer,
-          wallet_pubkey: wallet.address
-        }
-      });
+  body: { event_id: token.event, token, sig, signer, wallet_pubkey: wallet.address }
+});
 
-      if (error) throw error;
-      setMintSig(data?.minted_asset || null);
+if (error) {
+  let msg = error.message;
+  try {
+    const resp = error.context; // a Response
+    if (resp && typeof resp.text === "function") {
+      const ct = resp.headers?.get("content-type") || "";
+      const body = ct.includes("application/json") ? await resp.json() : await resp.text();
+      console.log("[MINT][ERR body]", body);
+      msg = body?.error || body?.detail || body || msg;
+    }
+  } catch (e) {
+    console.log("[MINT][parse err]", e);
+  }
+  setError(msg);
+  return;
+}
+
+setMintSig(data?.minted_asset || null);
+
+
+
     } catch (e) {
       console.error(e);
       setError(e?.message || "Mint failed");
@@ -83,6 +98,42 @@ export default function Scan() {
 
         {error && <div className="mt-2 text-xs text-red-500">{error}</div>}
       </div>
+      <button
+  className="mt-3 btn btn-primary"
+  onClick={async () => {
+    try {
+      setError("");
+      setMintSig(null);
+
+      if (!wallet?.address) {
+        setError("No wallet found. Create or login first.");
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Not logged in");
+        return;
+      }
+
+      // fetch a FRESH QR payload
+      const res = await fetch(
+        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/qr-issue?event_id=${EVENT_ID}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } }
+      );
+
+      const payload = await res.json();  // { token, sig, signer }
+      // IMPORTANT: handleScan expects a STRING
+      await handleScan(JSON.stringify(payload));
+    } catch (e) {
+      setError(e?.message || "QR fetch failed");
+    }
+  }}
+>
+  Test Mint (fresh QR)
+</button>
+
+
     </div>
   );
 }

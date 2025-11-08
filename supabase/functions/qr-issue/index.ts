@@ -1,15 +1,14 @@
 // supabase/functions/qr-issue/index.ts
 // Use dynamic import with ts-ignore to avoid missing type declarations from esm.sh
 // @ts-ignore: external module without types
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as ed from "@noble/ed25519";
-
+import { createClient } from "npm:@supabase/supabase-js@2";
+import * as ed from "npm:@noble/ed25519@2.1.0";
 
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
 
@@ -43,7 +42,7 @@ Deno.serve(async (req) => {
     if (keyErr || !keyRow) return new Response(JSON.stringify({ error: "qr signer missing" }), { status: 404, headers: cors });
 
     const now = Math.floor(Date.now() / 1000);
-    const exp = now + 30; // 30s TTL
+    const exp = now + 1000; // 30s TTL
     const token = { event: event_id, exp, nonce: randNonce(), ver: 1 };
 
     const msg = u8(JSON.stringify(token));

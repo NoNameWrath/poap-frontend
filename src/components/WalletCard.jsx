@@ -51,6 +51,7 @@ export default function WalletCard({ address, onViewSecret }) {
                 View secret
               </button>
             )}
+
           </div>
         </div>
       ) : (

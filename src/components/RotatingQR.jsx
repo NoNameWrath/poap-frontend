@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import QRCode from "qrcode.react";
 
-const FUNCTIONS_URL = `${import.meta.env.SUPABASE_URL}/functions/v1`;
+const FUNCTIONS_URL = `${process.env.REACT_APP_SUPABASE_URL}/functions/v1`;
 
-export default function RotatingQR({ eventId, intervalMs = 10000 }) {
+export default function RotatingQR({ eventId, intervalMs = 1000000 }) {
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState("");
   const [ttl, setTtl] = useState(0);

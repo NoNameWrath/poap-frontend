@@ -1,6 +1,6 @@
 // supabase/functions/events-create/index.ts
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as ed from "@noble/ed25519";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import * as ed from "npm:@noble/ed25519@2.1.0";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +26,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const { name, starts_at, ends_at } = body ?? {};
+    
     if (!name || !starts_at || !ends_at) {
       return new Response(JSON.stringify({ error: "name, starts_at, ends_at required" }), { status: 400, headers: cors });
     }
@@ -39,7 +40,7 @@ Deno.serve(async (req) => {
     // create event
     const { data: ev, error: evErr } = await supabase
       .from("events")
-      .insert([{ name, starts_at, ends_at, created_by: user.email ?? "" }])
+      .insert([{ name, starts_at, ends_at }])
       .select("id")
       .single();
 
