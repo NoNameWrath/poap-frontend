@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
 
     // event window
     const { data: ev, error: evErr } = await supabase
-      .from("events").select("starts_at,ends_at").eq("id", event_id).maybeSingle();
+      .from("events").select("starts_at,ends_at,name,image_url,metadata_uri").eq("id", event_id).maybeSingle();
     if (evErr || !ev) return new Response(JSON.stringify({ error: "Event not found" }), { status: 404, headers: corsHeaders(origin) });
     const now = Math.floor(Date.now()/1000);
     const start = Math.floor(new Date(ev.starts_at).getTime()/1000);
@@ -136,12 +136,15 @@ Deno.serve(async (req) => {
 
     // Generate a new keypair for the NFT asset
     const asset = generateSigner(umi);
+    const name = ev?.name || "POAP";
+    const uri  = ev?.metadata_uri || "https://example.com/poap.json";
+
     
     // Create the NFT with the asset address
     await coreMod.create(umi, { 
       asset,
-      name: "POAP", 
-      uri: "https://example.com/poap.json", 
+      name,
+      uri,
       owner: publicKey(wallet_pubkey),
     }).sendAndConfirm(umi);
     

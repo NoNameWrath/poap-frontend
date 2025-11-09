@@ -9,7 +9,7 @@ export default function Scan() {
   const [scanned, setScanned] = useState(null);
   const [mintSig, setMintSig] = useState(null);
   const [error, setError] = useState("");
-  const EVENT_ID = "a0982bcb-d7ea-4f72-99ad-527cd2936ec3"; // or prop/state
+  const EVENT_ID = "7640d518-08a8-45a6-a95f-8662d1e93b1e"; // or prop/state
 const [busy, setBusy] = useState(false);
 
   const handleScan = async (text) => {
