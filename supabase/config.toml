@@ -351,7 +351,7 @@ verify_jwt = false
 import_map = "./functions/deno.json"
 entrypoint = "./functions/mint/index.ts"
 
-[functions.wallet]
+[functions."wallet"]
 verify_jwt = true
 import_map = "./functions/deno.json"
 entrypoint = "./functions/wallet/index.ts"

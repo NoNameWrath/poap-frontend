@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: corsHeaders(origin) });
     }
 
-    // FIXED: Fetch ALL required fields including metadata_uri and image_url
+    // Fetch event details
     const { data: ev, error: evErr } = await supabase
       .from("events")
       .select("starts_at, ends_at, name, image_url, metadata_uri")
@@ -87,13 +87,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Event not found" }), { status: 404, headers: corsHeaders(origin) });
     }
 
-    // Log for debugging
-    console.log("Event data:", { 
-      name: ev.name, 
-      image_url: ev.image_url, 
-      metadata_uri: ev.metadata_uri 
-    });
-
+    // Validate event timing
     const now = Math.floor(Date.now()/1000);
     const start = Math.floor(new Date(ev.starts_at).getTime()/1000);
     const end   = Math.floor(new Date(ev.ends_at).getTime()/1000);
@@ -133,6 +127,70 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, minted_asset: pass.minted_asset, reused: true }), { status: 200, headers: corsHeaders(origin) });
     }
 
+    // ----- Prepare metadata -----
+    let metadataUri = ev.metadata_uri;
+    
+    // If metadata_uri is null, try to fetch from storage or create inline
+    if (!metadataUri) {
+      console.log("No metadata_uri in DB, checking storage...");
+      
+      // Try to get public URL from storage
+      const metaPath = `events/${event_id}/metadata.json`;
+      const { data: storageData } = supabase.storage.from("poap").getPublicUrl(metaPath);
+      
+      if (storageData?.publicUrl) {
+        // Verify it exists by fetching
+        try {
+          const checkRes = await fetch(storageData.publicUrl);
+          if (checkRes.ok) {
+            metadataUri = storageData.publicUrl;
+            console.log("Found metadata in storage:", metadataUri);
+          }
+        } catch (e) {
+          console.log("Metadata not found in storage, will use inline");
+        }
+      }
+      
+      // If still no URI, create inline metadata
+      if (!metadataUri) {
+        console.log("Creating inline metadata URL");
+        // Create a data URI with the metadata
+        const imageUrl = ev.image_url || "https://dummyimage.com/512x512/333333/ffffff.png&text=POAP";
+        const metadata = {
+          name: ev.name || "POAP",
+          symbol: "POAP",
+          description: `Proof of attendance: ${ev.name || "Event"}`,
+          image: imageUrl,
+          attributes: [
+            { trait_type: "Event", value: ev.name || "POAP" },
+          ],
+        };
+        
+        // For Solana NFTs, we need a real URL, so let's upload it now
+        const metaPath = `events/${event_id}/metadata.json`;
+        const metaBlob = JSON.stringify(metadata);
+        const encoder = new TextEncoder();
+        const metaBytes = encoder.encode(metaBlob);
+        
+        const { error: uploadErr } = await supabase.storage
+          .from("poap")
+          .upload(metaPath, metaBytes, {
+            contentType: "application/json",
+            upsert: true,
+          });
+        
+        if (uploadErr) {
+          console.error("Failed to upload metadata:", uploadErr);
+          // Use a fallback URL
+          metadataUri = "https://arweave.net/TBD"; // You should handle this better
+        } else {
+          const { data: publicData } = supabase.storage.from("poap").getPublicUrl(metaPath);
+          metadataUri = publicData.publicUrl;
+          console.log("Uploaded metadata to:", metadataUri);
+        }
+      }
+    }
+
     // ----- Umi + Core: create signer using umi.eddsa -----
     const umi = createUmi(RPC_URL);
 
@@ -152,11 +210,10 @@ Deno.serve(async (req) => {
     // Generate a new keypair for the NFT asset
     const asset = generateSigner(umi);
     
-    // FIXED: Use metadata_uri if available, otherwise fall back to default
     const name = ev.name || "POAP";
-    const uri = ev.metadata_uri || "https://example.com/poap.json";
+    const uri = metadataUri;
 
-    console.log("Minting with:", { name, uri, owner: wallet_pubkey });
+    console.log("Minting NFT:", { name, uri, owner: wallet_pubkey });
 
     // Create the NFT with the asset address
     await coreMod.create(umi, { 
