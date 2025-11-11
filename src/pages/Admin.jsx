@@ -12,6 +12,7 @@ export default function Admin() {
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let unsub;
@@ -51,6 +52,38 @@ export default function Admin() {
     if ((evs?.length ?? 0) && !selected) setSelected(evs[0].id);
   }
 
+  const deleteEvent = async (eventId) => {
+    if (!confirm("Are you sure you want to delete this event? This action cannot be undone and will delete all associated data.")) {
+      return;
+    }
+
+    setDeleting(true);
+    setError("");
+    try {
+      const { data, error } = await supabase.functions.invoke("events-delete", {
+        body: { event_id: eventId }
+      });
+
+      if (error) throw error;
+
+      // Refresh the events list
+      await refreshEvents();
+      
+      // If the deleted event was selected, select the first event or null
+      if (selected === eventId) {
+        const remainingEvents = events.filter(e => e.id !== eventId);
+        setSelected(remainingEvents?.[0]?.id ?? null);
+      }
+
+      alert("Event deleted successfully");
+    } catch (e) {
+      console.error("Delete error:", e);
+      setError(e?.message || "Failed to delete event");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const copyEventLink = async () => {
     if (!selected) return;
     const link = `${window.location.origin}/event/${selected}`;
@@ -68,8 +101,23 @@ export default function Admin() {
     return `${window.location.origin}/event/${selected}`;
   };
 
-  if (!user) return <div className="p-6">Please login</div>;
-  if (!isAdmin) return <div className="p-6">Not authorized</div>;
+  if (!user) return (
+    <div className="min-h-screen">
+      <Navbar />
+      <div className="p-6 text-center">
+        <div className="text-zinc-400">Please login to access the admin dashboard</div>
+      </div>
+    </div>
+  );
+
+  if (!isAdmin) return (
+    <div className="min-h-screen">
+      <Navbar />
+      <div className="p-6 text-center">
+        <div className="text-zinc-400">Not authorized. Admin access required.</div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen">
@@ -89,16 +137,18 @@ export default function Admin() {
               <div className="text-sm text-zinc-400 mb-2">Events</div>
               <div className="space-y-2 max-h-[50vh] overflow-auto">
                 {(events || []).map((ev) => (
-                  <button
+                  <div
                     key={ev.id}
-                    onClick={() => setSelected(ev.id)}
                     className={`w-full text-left p-3 rounded border transition ${
                       selected === ev.id 
                         ? "border-primary-600 bg-primary-600/10" 
                         : "border-zinc-700 hover:border-zinc-600"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div 
+                      className="flex items-center gap-3 cursor-pointer"
+                      onClick={() => setSelected(ev.id)}
+                    >
                       {ev.image_url ? (
                         <img
                           src={ev.image_url}
@@ -116,8 +166,19 @@ export default function Admin() {
                           {new Date(ev.starts_at).toLocaleDateString()}
                         </div>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteEvent(ev.id);
+                        }}
+                        disabled={deleting}
+                        className="btn btn-ghost btn-sm text-red-400 hover:text-red-300 hover:bg-red-900/20 disabled:opacity-50"
+                        title="Delete event"
+                      >
+                        {deleting ? "..." : "🗑️"}
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ))}
                 {!events?.length && (
                   <div className="text-sm text-zinc-500">No events yet.</div>

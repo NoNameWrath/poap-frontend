@@ -361,3 +361,7 @@ verify_jwt = true
 import_map = "./functions/deno.json"
 entrypoint = "./functions/events-create/index.ts"
 
+[functions."events-delete"]
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/events-delete/index.ts"
