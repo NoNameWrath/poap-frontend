@@ -11,8 +11,8 @@ export default function Admin() {
   const [events, setEvents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  // auth
   useEffect(() => {
     let unsub;
     (async () => {
@@ -25,12 +25,10 @@ export default function Admin() {
     return () => unsub?.unsubscribe();
   }, []);
 
-  // admin check + load events
   useEffect(() => {
     if (!user) return;
     (async () => {
       setError("");
-      // check admin membership
       const { data: adminRow, error: aerr } = await supabase
         .from("admins")
         .select("email")
@@ -38,21 +36,37 @@ export default function Admin() {
         .maybeSingle();
       if (aerr) { setError(aerr.message); return; }
       setIsAdmin(!!adminRow);
-      await refreshEvents(); // initial list load
+      await refreshEvents();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // refresh list after creation
   async function refreshEvents() {
     const { data: evs, error: eerr } = await supabase
       .from("events")
-      .select("id,name,starts_at,ends_at,created_at,image_url") // include image for preview
+      .select("id,name,starts_at,ends_at,created_at,image_url")
       .order("created_at", { ascending: false });
     if (eerr) { setError(eerr.message); return; }
     setEvents(evs || []);
     if ((evs?.length ?? 0) && !selected) setSelected(evs[0].id);
   }
+
+  const copyEventLink = async () => {
+    if (!selected) return;
+    const link = `${window.location.origin}/event/${selected}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      alert("Failed to copy: " + e.message);
+    }
+  };
+
+  const getEventLink = () => {
+    if (!selected) return "";
+    return `${window.location.origin}/event/${selected}`;
+  };
 
   if (!user) return <div className="p-6">Please login</div>;
   if (!isAdmin) return <div className="p-6">Not authorized</div>;
@@ -61,71 +75,129 @@ export default function Admin() {
     <div className="min-h-screen">
       <Navbar />
       <main className="container-px mx-auto pt-8 pb-16">
-        <h1 className="text-2xl font-semibold mb-4">Admin</h1>
+        <h1 className="text-2xl font-semibold mb-4">Admin Dashboard</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left column: create + events list */}
           <div className="space-y-6">
             <div className="card p-4">
-              <div className="text-sm text-zinc-500 mb-2">Create Event</div>
+              <div className="text-sm text-zinc-400 mb-2">Create Event</div>
               <CreateEventForm onCreated={refreshEvents} />
             </div>
 
             <div className="card p-4">
-              <div className="text-sm text-zinc-500 mb-2">Events</div>
+              <div className="text-sm text-zinc-400 mb-2">Events</div>
               <div className="space-y-2 max-h-[50vh] overflow-auto">
                 {(events || []).map((ev) => (
                   <button
                     key={ev.id}
                     onClick={() => setSelected(ev.id)}
-                    className={`w-full text-left p-3 rounded border ${selected === ev.id ? "border-blue-500 bg-blue-50" : "border-zinc-200"}`}
+                    className={`w-full text-left p-3 rounded border transition ${
+                      selected === ev.id 
+                        ? "border-primary-600 bg-primary-600/10" 
+                        : "border-zinc-700 hover:border-zinc-600"
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       {ev.image_url ? (
                         <img
                           src={ev.image_url}
                           alt={ev.name}
-                          className="h-8 w-8 rounded object-cover border"
+                          className="h-10 w-10 rounded object-cover border border-zinc-700"
                         />
                       ) : (
-                        <div className="h-8 w-8 rounded bg-zinc-100 border" />
+                        <div className="h-10 w-10 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-600">
+                          📅
+                        </div>
                       )}
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{ev.name}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate text-white">{ev.name}</div>
                         <div className="text-xs text-zinc-500 truncate">
-                          {new Date(ev.starts_at).toLocaleString()} – {new Date(ev.ends_at).toLocaleString()}
+                          {new Date(ev.starts_at).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
                   </button>
                 ))}
-                {!events?.length && <div className="text-sm text-zinc-500">No events yet.</div>}
+                {!events?.length && (
+                  <div className="text-sm text-zinc-500">No events yet.</div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Right columns: rotating QR for selected event */}
-          <div className="lg:col-span-2">
-            <div className="card p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-zinc-500">Rotating QR</div>
-                  <div className="text-xs text-zinc-500">Changes every ~10s</div>
+          {/* Right columns: QR + sharing */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Shareable Link */}
+            {selected && (
+              <div className="card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Share Event</h3>
+                    <p className="text-sm text-zinc-400 mt-1">
+                      Students can scan the QR at this link
+                    </p>
+                  </div>
                 </div>
-                <div className="text-xs text-zinc-400">{selected || "—"}</div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={getEventLink()}
+                    readOnly
+                    className="input flex-1 font-mono text-sm"
+                  />
+                  <button
+                    onClick={copyEventLink}
+                    className="btn btn-primary px-6"
+                  >
+                    {copied ? "✓ Copied" : "Copy Link"}
+                  </button>
+                </div>
+
+                <div className="mt-4 p-3 bg-blue-900/20 border border-blue-800 rounded-lg">
+                  <div className="text-sm text-blue-300">
+                    💡 <strong>Pro tip:</strong> Display this link on a projector or TV screen so students can scan with their phones.
+                    The QR code rotates automatically for security.
+                  </div>
+                </div>
               </div>
-              <div className="mt-4">
+            )}
+
+            {/* QR Display */}
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-lg font-semibold text-white">Rotating QR Code</div>
+                  <div className="text-xs text-zinc-500">
+                    Updates every 10 seconds • Expires in 30 seconds
+                  </div>
+                </div>
+                {selected && (
+                  <div className="text-xs text-zinc-400 font-mono">
+                    {selected.slice(0, 8)}...
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-center">
                 {selected ? (
                   <RotatingQR eventId={selected} />
                 ) : (
-                  <div className="text-sm text-zinc-500">Select an event</div>
+                  <div className="flex items-center justify-center h-80 w-80 bg-zinc-900 rounded border border-zinc-700">
+                    <div className="text-sm text-zinc-500">Select an event</div>
+                  </div>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {error && <div className="mt-4 text-red-500 text-sm">{error}</div>}
+        {error && (
+          <div className="mt-4 text-red-400 text-sm bg-red-900/20 border border-red-700 p-3 rounded">
+            {error}
+          </div>
+        )}
       </main>
     </div>
   );

@@ -1,9 +1,6 @@
 // supabase/functions/qr-issue/index.ts
-// Use dynamic import with ts-ignore to avoid missing type declarations from esm.sh
-// @ts-ignore: external module without types
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as ed from "npm:@noble/ed25519@2.1.0";
-
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -42,18 +39,21 @@ Deno.serve(async (req) => {
     if (keyErr || !keyRow) return new Response(JSON.stringify({ error: "qr signer missing" }), { status: 404, headers: cors });
 
     const now = Math.floor(Date.now() / 1000);
-    const exp = now + 1000; // 30s TTL
+    // SHORTER TTL: 30 seconds instead of 1000
+    const exp = now + 30;
     const token = { event: event_id, exp, nonce: randNonce(), ver: 1 };
+
+    console.log(`[QR-ISSUE] Generated token for event ${event_id}, expires in 30s at ${exp} (now: ${now})`);
 
     const msg = u8(JSON.stringify(token));
     const digest = await sha256(msg);
     const secret = b64ToU8(keyRow.secret_b64);
-    const sig = await ed.signAsync(digest, secret); // Uint8Array(64)
+    const sig = await ed.signAsync(digest, secret);
 
     return new Response(JSON.stringify({
       token,
-      sig: btoa(String.fromCharCode(...sig)),     // base64 signature
-      signer: keyRow.public_key                   // hex of public key
+      sig: btoa(String.fromCharCode(...sig)),
+      signer: keyRow.public_key
     }), { status: 200, headers: cors });
   } catch (e) {
     return new Response(JSON.stringify({ error: "Unhandled", detail: String(e?.message ?? e) }), { status: 500, headers: cors });

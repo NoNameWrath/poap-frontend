@@ -75,10 +75,25 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: corsHeaders(origin) });
     }
 
-    // event window
+    // FIXED: Fetch ALL required fields including metadata_uri and image_url
     const { data: ev, error: evErr } = await supabase
-      .from("events").select("starts_at,ends_at,name,image_url,metadata_uri").eq("id", event_id).maybeSingle();
-    if (evErr || !ev) return new Response(JSON.stringify({ error: "Event not found" }), { status: 404, headers: corsHeaders(origin) });
+      .from("events")
+      .select("starts_at, ends_at, name, image_url, metadata_uri")
+      .eq("id", event_id)
+      .maybeSingle();
+    
+    if (evErr || !ev) {
+      console.error("Event fetch error:", evErr);
+      return new Response(JSON.stringify({ error: "Event not found" }), { status: 404, headers: corsHeaders(origin) });
+    }
+
+    // Log for debugging
+    console.log("Event data:", { 
+      name: ev.name, 
+      image_url: ev.image_url, 
+      metadata_uri: ev.metadata_uri 
+    });
+
     const now = Math.floor(Date.now()/1000);
     const start = Math.floor(new Date(ev.starts_at).getTime()/1000);
     const end   = Math.floor(new Date(ev.ends_at).getTime()/1000);
@@ -136,10 +151,13 @@ Deno.serve(async (req) => {
 
     // Generate a new keypair for the NFT asset
     const asset = generateSigner(umi);
-    const name = ev?.name || "POAP";
-    const uri  = ev?.metadata_uri || "https://example.com/poap.json";
-
     
+    // FIXED: Use metadata_uri if available, otherwise fall back to default
+    const name = ev.name || "POAP";
+    const uri = ev.metadata_uri || "https://example.com/poap.json";
+
+    console.log("Minting with:", { name, uri, owner: wallet_pubkey });
+
     // Create the NFT with the asset address
     await coreMod.create(umi, { 
       asset,
@@ -169,6 +187,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, minted_asset: mintedAssetAddress }), { status: 201, headers: corsHeaders(origin) });
   } catch (e) {
     const msg = (e as Error)?.message ?? String(e);
+    console.error("Mint error:", msg);
     return new Response(JSON.stringify({ error: "Unhandled", detail: msg }), { status: 500, headers: corsHeaders(origin) });
   }
 });

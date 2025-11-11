@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Scan from './pages/Scan';
 import PostLogin from './pages/PostLogin';
 import Admin from "./pages/Admin";
+import EventDisplay from './pages/EventDisplay';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -21,6 +22,7 @@ export default function RoutesDef() {
       <Route path="/post-login" element={<PostLogin />} />
       <Route path="/app" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/scan" element={<PrivateRoute><Scan /></PrivateRoute>} />
+      <Route path="/event/:eventId" element={<EventDisplay />} />
       <Route path="*" element={<Navigate to="/" replace />} />
       <Route path="/admin" element={<Admin />} />
       
